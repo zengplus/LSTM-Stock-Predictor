@@ -24,7 +24,7 @@ end_date = '2022-01-01'
 
 
 def get_stock_data(ticker):
-    data = yf.download(ticker, start=start_date, end=end_date)
+    data = yf.download(ticker, start=start_date, end=end_date, proxy="http://127.0.0.1:7890")
     # 日期
     data['Year'] = data.index.year
     data['Month'] = data.index.month

@@ -1,0 +1,3 @@
+Price,Adj Close,Close,High,Low,Open,Volume,Year,Month,Day,MA5,MA10,MA20,RSI,MACD,VWAP,SMA,Std_dev,Upper_band,Lower_band,Relative_Performance,ROC,ATR,Close_yes,Open_yes,High_yes,Low_yes
+Ticker,CVX,CVX,CVX,CVX,CVX,CVX,,,,,,,,,,,,,,,,,,,,
+Date,,,,,,,,,,,,,,,,,,,,,,,,,,

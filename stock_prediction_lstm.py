@@ -281,6 +281,22 @@ def train_and_predict_lstm(ticker, data, X, y, n_steps=60, num_epochs=500, batch
 all_predictions_lstm = {}
 prediction_metrics = {}
 
+def save_predictions_with_indices(ticker, test_indices, predictions):
+    # 合并 `test_indices` 和 `predictions` 为一个 DataFrame
+    df = pd.DataFrame({
+        'Date': test_indices,
+        'Prediction': predictions
+    })
+
+    # 保存 DataFrame 到文件
+    file_path = os.path.join('predictions', f'{ticker}_predictions.pkl')
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    with open(file_path, 'wb') as file:
+        pickle.dump(df, file)
+
+    print(f'Saved predictions for {ticker} to {file_path}')
+
+
 for ticker in tickers:
     print(f"\nProcessing {ticker}")
     data = stock_data[ticker]
@@ -297,12 +313,18 @@ for ticker in tickers:
     # 保存预测结果
     file_path = os.path.join('predictions', f'{ticker}_predictions.pkl')
     with open(file_path, 'wb') as file:
-        pickle.dump(predict_result, file)
-        print(f'Saved predictions for {ticker} to {file_path}')
+        save_predictions_with_indices(ticker, test_indices, predictions)
 
 # 保存预测指标
+folder_path = 'output'
+if not os.path.exists(folder_path):
+    os.makedirs(folder_path)
+    print(f"Folder '{folder_path}' created.")
+else:
+    print(f"Folder '{folder_path}' already exists.")
+
 metrics_df = pd.DataFrame(prediction_metrics).T
-metrics_df.to_csv('prediction_metrics.csv')
+metrics_df.to_csv('output/prediction_metrics.csv')
 print("\nPrediction metrics summary:")
 print(metrics_df.describe())
 
@@ -328,7 +350,7 @@ summary = {
     'Average MAE': metrics_df['mae'].mean()
 }
 
-with open('prediction_summary.txt', 'w') as f:
+with open('output/prediction_summary.txt', 'w') as f:
     for key, value in summary.items():
         f.write(f'{key}: {value}\n')
 

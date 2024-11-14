@@ -1,329 +1,227 @@
-import os
 import numpy as np
 import pandas as pd
-import torch
-import torch.nn as nn
-import torch.optim as optim
+import time
 import matplotlib.pyplot as plt
-from collections import deque
+import seaborn as sns
 import random
-import pickle
-from tqdm import tqdm
+sns.set()
 
-class TradingEnvironment:
-    def __init__(self, prices, predictions, initial_balance=100000, max_trades=5):
-        """
-        交易环境
-        
-        Args:
-            prices: 股票价格序列
-            predictions: LSTM预测的价格变化率
-            initial_balance: 初始资金
-            max_trades: 每个时间步最大交易数量
-        """
-        self.prices = prices
-        self.predictions = predictions
-        self.initial_balance = initial_balance
-        self.max_trades = max_trades
-        self.reset()
-        
-    def reset(self):
-        self.balance = self.initial_balance
-        self.position = 0  # 当前持仓量
-        self.current_step = 0
-        self.trades = []
-        self.portfolio_values = []
-        return self._get_state()
-    
-    def _get_state(self):
-        """
-        状态包含:
-        - 当前持仓量
-        - 当前余额
-        - LSTM预测的价格变化
-        - 当前价格相对于过去N天的变化率
-        - 技术指标 (MA5, MA10等)
-        """
-        if self.current_step >= len(self.prices):
-            return None
-            
-        price = self.prices[self.current_step]
-        
-        # 获取LSTM预测值
-        date = str(self.current_step)
-        pred_change = self.predictions.get(date, 0)
-        
-        # 计算价格变化率
-        price_change = 0
-        if self.current_step > 0:
-            price_change = (price - self.prices[self.current_step-1]) / self.prices[self.current_step-1]
-        
-        # 计算移动平均
-        ma5 = np.mean(self.prices[max(0, self.current_step-5):self.current_step+1])
-        ma10 = np.mean(self.prices[max(0, self.current_step-10):self.current_step+1])
-        
-        # 归一化处理
-        normalized_balance = self.balance / self.initial_balance
-        normalized_position = self.position / self.max_trades
-        normalized_price = price / self.prices[0]
-        
-        state = np.array([
-            normalized_position,
-            normalized_balance,
-            pred_change,
-            price_change,
-            (price - ma5) / ma5,
-            (price - ma10) / ma10,
-            normalized_price
-        ])
-        
-        return state
-    
-    def step(self, action):
-        """
-        执行交易行为
-        action: [0: 持有, 1: 买入, 2: 卖出]
-        """
-        if self.current_step >= len(self.prices) - 1:
-            return self._get_state(), 0, True
-            
-        current_price = self.prices[self.current_step]
-        self.current_step += 1
-        next_price = self.prices[self.current_step]
-        
-        # 记录当前投资组合价值
-        portfolio_value_before = self.balance + self.position * current_price
-        
-        reward = 0
-        trade_amount = 1  # 每次交易1个单位
-        
-        if action == 1:  # 买入
-            max_can_buy = min(self.max_trades - self.position, self.balance // current_price)
-            if max_can_buy > 0:
-                self.position += trade_amount
-                self.balance -= current_price * trade_amount
-                self.trades.append((self.current_step, 'buy', current_price, trade_amount))
-                
-        elif action == 2:  # 卖出
-            if self.position > 0:
-                self.position -= trade_amount
-                self.balance += current_price * trade_amount
-                self.trades.append((self.current_step, 'sell', current_price, trade_amount))
-        
-        # 计算新的投资组合价值和奖励
-        portfolio_value_after = self.balance + self.position * next_price
-        profit = portfolio_value_after - portfolio_value_before
-        
-        # 设计奖励函数
-        reward = profit / portfolio_value_before * 100  # 收益率作为基础奖励
-        
-        # 添加额外的奖励/惩罚
-        if action != 0:  # 交易成本惩罚
-            reward -= 0.1
-        
-        if self.position < 0 or self.balance < 0:  # 非法操作惩罚
-            reward = -10
-            
-        # 记录投资组合价值
-        self.portfolio_values.append(portfolio_value_after)
-        
-        done = self.current_step >= len(self.prices) - 1
-        if done:
-            total_return = (portfolio_value_after - self.initial_balance) / self.initial_balance * 100
-            reward += total_return  # 在episode结束时给予总收益奖励
-            
-        return self._get_state(), reward, done
+# 股票列表
+tickers = [
+    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA',       # 科技
+    'JPM', 'BAC', 'C', 'WFC', 'GS',                # 金融
+    'JNJ', 'PFE', 'MRK', 'ABBV', 'BMY',            # 医药
+    'XOM', 'CVX', 'COP', 'SLB', 'BKR',             # 能源
+    'DIS', 'NFLX', 'CMCSA', 'NKE', 'SBUX',         # 消费
+    'CAT', 'DE', 'MMM', 'GE', 'HON'                # 工业
+]
 
-class DQNAgent(nn.Module):
-    def __init__(self, state_size, action_size=3):
-        super(DQNAgent, self).__init__()
-        self.network = nn.Sequential(
-            nn.Linear(state_size, 64),
-            nn.ReLU(),
-            nn.Linear(64, 32),
-            nn.ReLU(),
-            nn.Linear(32, action_size)
+# Deep Evolution Strategy 类
+class Deep_Evolution_Strategy:
+    def __init__(self, weights, reward_function, population_size, sigma, learning_rate):
+        self.weights = weights
+        self.reward_function = reward_function
+        self.population_size = population_size
+        self.sigma = sigma
+        self.learning_rate = learning_rate
+
+    def _get_weight_from_population(self, weights, population):
+        weights_population = []
+        for index, i in enumerate(population):
+            jittered = self.sigma * i
+            weights_population.append(weights[index] + jittered)
+        return weights_population
+
+    def get_weights(self):
+        return self.weights
+
+    def train(self, epoch=100, print_every=1):
+        lasttime = time.time()
+        for i in range(epoch):
+            population = []
+            rewards = np.zeros(self.population_size)
+            for k in range(self.population_size):
+                x = []
+                for w in self.weights:
+                    x.append(np.random.randn(*w.shape))
+                population.append(x)
+            for k in range(self.population_size):
+                weights_population = self._get_weight_from_population(self.weights, population[k])
+                rewards[k] = self.reward_function(weights_population)
+            rewards = (rewards - np.mean(rewards)) / (np.std(rewards) + 1e-7)
+            for index, w in enumerate(self.weights):
+                A = np.array([p[index] for p in population])
+                self.weights[index] = (
+                    w
+                    + self.learning_rate
+                    / (self.population_size * self.sigma)
+                    * np.dot(A.T, rewards).T
+                )
+            if (i + 1) % print_every == 0:
+                print('iter %d. reward: %f' % (i + 1, self.reward_function(self.weights)))
+        print('time taken to train:', time.time() - lasttime, 'seconds')
+
+
+class Model:
+    def __init__(self, input_size, layer_size, output_size):
+        self.weights = [
+            np.random.randn(input_size, layer_size),
+            np.random.randn(layer_size, output_size),
+            np.random.randn(1, layer_size),
+        ]
+
+    def predict(self, inputs):
+        feed = np.dot(inputs, self.weights[0]) + self.weights[-1]
+        decision = np.dot(feed, self.weights[1])
+        return decision
+
+    def get_weights(self):
+        return self.weights
+
+    def set_weights(self, weights):
+        self.weights = weights
+
+
+class Agent:
+    POPULATION_SIZE = 15
+    SIGMA = 0.1
+    LEARNING_RATE = 0.03
+
+    def __init__(self, model, window_size, trend, skip, initial_money, ticker):
+        self.model = model
+        self.window_size = window_size
+        self.half_window = window_size // 2
+        self.trend = trend
+        self.skip = skip
+        self.initial_money = initial_money
+        self.ticker = ticker
+        self.es = Deep_Evolution_Strategy(
+            self.model.get_weights(),
+            self.get_reward,
+            self.POPULATION_SIZE,
+            self.SIGMA,
+            self.LEARNING_RATE,
         )
-        
-    def forward(self, x):
-        return self.network(x)
 
-class TradingAgent:
-    def __init__(self, state_size, device='cuda'):
-        self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
-        self.agent = DQNAgent(state_size).to(self.device)
-        self.target_agent = DQNAgent(state_size).to(self.device)
-        self.target_agent.load_state_dict(self.agent.state_dict())
-        
-        self.optimizer = optim.Adam(self.agent.parameters())
-        self.criterion = nn.MSELoss()
-        self.memory = deque(maxlen=100000)
-        
-        self.batch_size = 64
-        self.gamma = 0.95
-        self.epsilon = 1.0
-        self.epsilon_min = 0.01
-        self.epsilon_decay = 0.995
-        self.target_update = 10
-        
-    def act(self, state, training=True):
-        if training and random.random() < self.epsilon:
-            return random.randint(0, 2)
-        
-        state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
-        with torch.no_grad():
-            q_values = self.agent(state_tensor)
-        return q_values.argmax().item()
-    
-    def train(self, env, episodes=1000, max_steps=None):
-        rewards_history = []
-        portfolio_values = []
-        
-        for episode in tqdm(range(episodes), desc="Training"):
-            state = env.reset()
-            total_reward = 0
-            steps = 0
-            
-            while True:
-                action = self.act(state)
-                next_state, reward, done = env.step(action)
-                
-                if next_state is not None:
-                    self.memory.append((state, action, reward, next_state, done))
-                    state = next_state
-                    total_reward += reward
-                    steps += 1
-                
-                if len(self.memory) >= self.batch_size:
-                    batch = random.sample(self.memory, self.batch_size)
-                    self._train_step(batch)
-                
-                if done or (max_steps and steps >= max_steps):
-                    break
-            
-            # 更新目标网络
-            if episode % self.target_update == 0:
-                self.target_agent.load_state_dict(self.agent.state_dict())
-            
-            # 衰减epsilon
-            self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
-            
-            rewards_history.append(total_reward)
-            portfolio_values.append(env.portfolio_values[-1])
-            
-            if episode % 10 == 0:
-                avg_reward = np.mean(rewards_history[-10:])
-                print(f'Episode {episode}, Average Reward: {avg_reward:.2f}, Epsilon: {self.epsilon:.2f}')
-        
-        return rewards_history, portfolio_values
-    
-    def _train_step(self, batch):
-        states = torch.FloatTensor([x[0] for x in batch]).to(self.device)
-        actions = torch.LongTensor([x[1] for x in batch]).to(self.device)
-        rewards = torch.FloatTensor([x[2] for x in batch]).to(self.device)
-        next_states = torch.FloatTensor([x[3] for x in batch]).to(self.device)
-        dones = torch.FloatTensor([x[4] for x in batch]).to(self.device)
-        
-        current_q = self.agent(states).gather(1, actions.unsqueeze(1))
-        next_q = self.target_agent(next_states).max(1)[0].detach()
-        target_q = rewards + (1 - dones) * self.gamma * next_q
-        
-        loss = self.criterion(current_q.squeeze(), target_q)
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
+    def act(self, sequence):
+        decision = self.model.predict(np.array(sequence))
+        return np.argmax(decision[0])
 
-def visualize_trades(prices, trades, portfolio_values, ticker):
-    plt.figure(figsize=(15, 10))
-    
-    # 绘制价格和交易点
-    plt.subplot(2, 1, 1)
-    plt.plot(prices, label='Stock Price', color='blue', alpha=0.6)
-    
-    buy_points = [t[0] for t in trades if t[1] == 'buy']
-    sell_points = [t[0] for t in trades if t[1] == 'sell']
-    
-    plt.plot(buy_points, [prices[i] for i in buy_points], '^', 
-             color='green', label='Buy', markersize=10)
-    plt.plot(sell_points, [prices[i] for i in sell_points], 'v', 
-             color='red', label='Sell', markersize=10)
-    
-    plt.title(f'{ticker} Trading Signals')
-    plt.legend()
-    plt.grid(True)
-    
-    # 绘制投资组合价值
-    plt.subplot(2, 1, 2)
-    plt.plot(portfolio_values, label='Portfolio Value', color='orange')
-    plt.title('Portfolio Value Over Time')
-    plt.grid(True)
-    plt.legend()
-    
-    plt.tight_layout()
-    os.makedirs('pic/trades', exist_ok=True)
-    plt.savefig(f'pic/trades/{ticker}_trades.png')
-    plt.close()
+    def get_state(self, t):
+        window_size = self.window_size + 1
+        d = t - window_size + 1
+        block = self.trend[d: t + 1] if d >= 0 else -d * [self.trend[0]] + self.trend[0: t + 1]
+        res = []
+        for i in range(window_size - 1):
+            res.append(block[i + 1] - block[i])
+        return np.array([res])
 
-def main():
-    # 股票列表
-    tickers = [
-        'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA',       # 科技
-        'JPM', 'BAC', 'C', 'WFC', 'GS',                # 金融
-        'JNJ', 'PFE', 'MRK', 'ABBV', 'BMY',            # 医药
-        'XOM', 'CVX', 'COP', 'SLB', 'BKR',             # 能源
-        'DIS', 'NFLX', 'CMCSA', 'NKE', 'SBUX',         # 消费
-        'CAT', 'DE', 'MMM', 'GE', 'HON'                # 工业
-    ]
-    
-    results = {}
-    
-    for ticker in tickers:
-        print(f"\nTraining agent for {ticker}")
-        
-        # 加载数据和LSTM预测结果
-        data = pd.read_csv(f'data/{ticker}.csv')
-        prices = data['Close'].values
-        
-        with open(f'predictions/{ticker}_predictions.pkl', 'rb') as f:
-            predictions = pickle.load(f)
-        
-        # 创建环境和代理
-        env = TradingEnvironment(prices, predictions)
-        agent = TradingAgent(state_size=7)  # 7个特征的状态空间
-        
-        # 训练代理
-        rewards_history, portfolio_values = agent.train(env, episodes=200)
-        
-        # 测试和可视化
-        state = env.reset()
-        done = False
-        
-        while not done:
-            action = agent.act(state, training=False)
-            state, _, done = env.step(action)
-        
-        # 可视化结果
-        visualize_trades(prices, env.trades, env.portfolio_values, ticker)
-        
-        # 记录结果
-        final_value = env.portfolio_values[-1]
-        total_return = (final_value - env.initial_balance) / env.initial_balance * 100
-        
-        results[ticker] = {
-            'final_value': final_value,
-            'return': total_return,
-            'n_trades': len(env.trades)
-        }
-        
-        # 保存模型
-        os.makedirs('models', exist_ok=True)
-        torch.save(agent.agent.state_dict(), f'models/{ticker}_model.pth')
-    
-    # 保存和显示结果
-    results_df = pd.DataFrame(results).T
-    results_df.to_csv('trading_results.csv')
-    print("\nTrading Results:")
-    print(results_df)
+    def get_reward(self, weights):
+        initial_money = self.initial_money
+        starting_money = initial_money
+        self.model.weights = weights
+        state = self.get_state(0)
+        inventory = []
+        quantity = 0
+        for t in range(0, len(self.trend) - 1, self.skip):
+            action = self.act(state)
+            next_state = self.get_state(t + 1)
 
-if __name__ == "__main__":
-    main()
+            if action == 1 and starting_money >= self.trend[t]:
+                inventory.append(self.trend[t])
+                starting_money -= self.trend[t]
+
+            elif action == 2 and len(inventory):
+                bought_price = inventory.pop(0)
+                starting_money += self.trend[t]
+
+            state = next_state
+        return ((starting_money - initial_money) / initial_money) * 100
+
+    def fit(self, iterations, checkpoint):
+        self.es.train(iterations, print_every=checkpoint)
+
+    def buy(self):
+        initial_money = self.initial_money
+        state = self.get_state(0)
+        starting_money = initial_money
+        states_sell = []
+        states_buy = []
+        inventory = []
+        transaction_history = []  # 用于记录交易历史
+
+        for t in range(0, len(self.trend) - 1, self.skip):
+            action = self.act(state)
+            next_state = self.get_state(t + 1)
+
+            if action == 1 and initial_money >= self.trend[t]:
+                inventory.append(self.trend[t])
+                initial_money -= self.trend[t]
+                states_buy.append(t)
+                transaction_history.append({
+                    'day': t,
+                    'operate': 'buy',
+                    'price': self.trend[t],
+                    'investment': 0,
+                    'total_balance': initial_money
+                })
+
+            elif action == 2 and len(inventory):
+                bought_price = inventory.pop(0)
+                initial_money += self.trend[t]
+                states_sell.append(t)
+                try:
+                    invest = ((self.trend[t] - bought_price) / bought_price) * 100
+                except:
+                    invest = 0
+                transaction_history.append({
+                    'day': t,
+                    'operate': 'sell',
+                    'price': self.trend[t],
+                    'investment': invest,
+                    'total_balance': initial_money
+                })
+
+            state = next_state
+
+        # 将交易历史保存为CSV
+        df_transaction = pd.DataFrame(transaction_history)
+        df_transaction.to_csv(f'output/{self.ticker}_transactions.csv', index=False)
+
+        invest = ((initial_money - starting_money) / starting_money) * 100
+        total_gains = initial_money - starting_money
+        return states_buy, states_sell, total_gains, invest
+
+
+# 处理每只股票
+def process_stock(ticker):
+    try:
+        # 读取pkl文件
+        df = pd.read_pickle(f'predictions/{ticker}_predictions.pkl')
+        print(f"\nProcessing {ticker}")
+        close = df.Prediction.values.tolist()
+
+        window_size = 30
+        skip = 1
+        initial_money = 10000
+
+        model = Model(input_size=window_size, layer_size=500, output_size=3)
+        agent = Agent(model=model, window_size=window_size, trend=close, skip=skip, initial_money=initial_money, ticker=ticker)
+        agent.fit(iterations=500, checkpoint=10)
+
+        states_buy, states_sell, total_gains, invest = agent.buy()
+
+        fig = plt.figure(figsize=(15, 5))
+        plt.plot(close, color='r', lw=2.)
+        plt.plot(close, '^', markersize=10, color='m', label='buying signal', markevery=states_buy)
+        plt.plot(close, 'v', markersize=10, color='k', label='selling signal', markevery=states_sell)
+        plt.title(f'{ticker} total gains {total_gains}, total investment {invest}%')
+        plt.legend()
+        plt.savefig(f'pic/trades/{ticker}_trades.png')
+        plt.close()
+    except Exception as e:
+        print(f"Error processing {ticker}: {e}")
+
+# 对所有股票进行处理
+for ticker in tickers:
+    process_stock(ticker)

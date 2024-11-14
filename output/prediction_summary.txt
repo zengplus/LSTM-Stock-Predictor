@@ -1,0 +1,5 @@
+Average Accuracy: 98.75525479496937
+Best Stock: JNJ
+Worst Stock: TSLA
+Average RMSE: 2.500857613805198
+Average MAE: 1.8634992737420477

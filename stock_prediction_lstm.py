@@ -71,7 +71,7 @@ def visualize_predictions(ticker, data, predict_result, test_indices, prediction
     return metrics
 
 def train_and_predict_lstm(ticker, data, X, y, save_dir, n_steps=60, num_epochs=500, batch_size=32, learning_rate=0.001):
-    # 数据归一化和准备部分保持不变
+    # 数据归一化和准备部分
     scaler_y = MinMaxScaler()
     scaler_X = MinMaxScaler()
     scaler_y.fit(y.values.reshape(-1, 1))
@@ -109,7 +109,7 @@ def train_and_predict_lstm(ticker, data, X, y, save_dir, n_steps=60, num_epochs=
 
     with tqdm(total=num_epochs, desc=f"Training {ticker}", unit="epoch") as pbar:
         for epoch in range(num_epochs):
-            # 训练和验证循环保持不变
+            # 训练和验证循环
             model.train()
             epoch_train_loss = 0
             for inputs, targets in train_loader:

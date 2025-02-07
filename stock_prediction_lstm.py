@@ -199,7 +199,7 @@ def predict(ticker_name, stock_data, stock_features, save_dir, epochs=500, batch
     # 保存预测指标
     os.makedirs(os.path.join(save_dir, 'output'), exist_ok=True)
     metrics_df = pd.DataFrame(prediction_metrics).T
-    metrics_df.to_csv(os.path.join(save_dir, 'output', 'prediction_metrics.csv'))
+    metrics_df.to_csv(os.path.join(save_dir, 'output', f'{ticker_name}_prediction_metrics.csv'))
     print("\nPrediction metrics summary:")
     print(metrics_df.describe())
 
@@ -216,7 +216,7 @@ def predict(ticker_name, stock_data, stock_features, save_dir, epochs=500, batch
     }
 
     # 保存汇总报告
-    with open(os.path.join(save_dir, 'output', 'prediction_summary.txt'), 'w') as f:
+    with open(os.path.join(save_dir, 'output', f'{ticker_name}_prediction_summary.txt'), 'w') as f:
         for key, value in summary.items():
             f.write(f'{key}: {value}\n')
 

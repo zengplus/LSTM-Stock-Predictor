@@ -1,6 +1,5 @@
 import os
 import pandas as pd
-import numpy as np
 
 def analyze_transactions(folder_path='results/transactions'):
    """分析交易记录,计算关键指标"""

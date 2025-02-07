@@ -88,33 +88,26 @@ def get_stock_data(ticker, start_date, end_date):
         处理后的股票数据DataFrame
     """
     # 下载股票数据
-    data = yf.download(ticker, start=start_date, end=end_date, proxy="http://127.0.0.1:7890")
+    # data = yf.download(ticker, start=start_date, end=end_date)  # 无代理
+    data = yf.download(ticker, start=start_date, end=end_date, proxy="http://127.0.0.1:7890")  # 有代理
     
     # 计算技术指标
     data = calculate_technical_indicators(data, start_date, end_date)
     
     return data
 
-def clean_csv_files(folder_path):
-    """
-    清理CSV文件，删除多余行并重命名列
-    
-    参数:
-        folder_path: CSV文件所在文件夹路径
-    """
-    for filename in os.listdir(folder_path):
-        if filename.endswith('.csv'):
-            file_path = os.path.join(folder_path, filename)
-            df = pd.read_csv(file_path)
+def clean_csv_files(file_path):
+
+    df = pd.read_csv(file_path)
             
-            # 删除第二行和第三行
-            df = df.drop([0, 1]).reset_index(drop=True)
+    # 删除第二行和第三行
+    df = df.drop([0, 1]).reset_index(drop=True)
             
-            # 重命名列
-            df = df.rename(columns={'Price': 'Date'})
+    # 重命名列
+    df = df.rename(columns={'Price': 'Date'})
             
-            # 保存修改后的文件
-            df.to_csv(file_path, index=False)
+    # 保存修改后的文件
+    df.to_csv(file_path, index=False)
     print("所有文件处理完成！")
 
 def main():
@@ -145,14 +138,10 @@ def main():
             print(f"处理 {ticker} 中...")
             stock_data = get_stock_data(ticker, START_DATE, END_DATE)
             stock_data.to_csv(f'{data_folder}/{ticker}.csv')
+            clean_csv_files(f'{data_folder}/{ticker}.csv')
             print(f"{ticker} 处理完成")
         except Exception as e:
             print(f"处理 {ticker} 时出错: {str(e)}")
-    
-    # 清理CSV文件
-    print("\n开始清理CSV文件...")
-    clean_csv_files(data_folder)
-    print("数据处理完成！")
 
 if __name__ == "__main__":
     main()

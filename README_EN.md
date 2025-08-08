@@ -2,8 +2,10 @@
 
 English | [中文](README.md)
 
-> **Note**: Developed through learning based on the [stock_trading](https://github.com/MilleXi/stock_trading) project.
+> [!NOTE]
+> **Developed through learning based on the [stock_trading](https://github.com/MilleXi/stock_trading) project.**
 
+> [!IMPORTANT]
 > **Important**: This project is solely a result of learning and practicing LSTM technology, and does not constitute any form of investment advice. Its prediction results are also not accurate for reference.
 
 ---

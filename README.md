@@ -2,9 +2,11 @@
 
 [English](README_EN.md) | 中文
 
-> **Note**: 基于 [stock_trading](https://github.com/MilleXi/stock_trading) 项目的基础上学习。
+> [!NOTE]
+> **基于 [stock_trading](https://github.com/MilleXi/stock_trading) 项目的基础上学习。**
 
-> **Important**: 本项目仅作为LSTM技术的学习实践结果，不构成任何形式的投资建议，其预测结果亦不具备参考准确性。
+> [!IMPORTANT]
+> 本项目仅作为LSTM技术的学习实践结果，不构成任何形式的投资建议，其预测结果亦不具备参考准确性。
 
 ---
 

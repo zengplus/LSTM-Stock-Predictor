@@ -1,127 +1,141 @@
-还想优化一下这个项目，大家有什么好的想法或者建议吗，欢迎在issues或者discussions中提出，也非常欢迎pr
+# LSTM-Stock-Predictor
 
-# Stock Trading AI
+[English](README_EN.md) | 中文
 
-基于LSTM预测和强化学习的股票交易AI系统。该系统结合了深度学习的预测能力和强化学习的决策能力，可以自动进行股票价格预测和交易决策。
+> **Note**: 基于 [stock_trading](https://github.com/MilleXi/stock_trading) 项目的基础上学习。
+
+> **Important**: 本项目仅作为LSTM技术的学习实践结果，不构成任何形式的投资建议，其预测结果亦不具备参考准确性。
+
+---
+
+基于LSTM预测和强化学习的股票预测系统。该系统结合了深度学习的预测能力和强化学习的决策能力，可以自动进行股票价格预测和交易决策。
 
 ## 项目特点
 
 - 使用LSTM进行股票价格走势预测
-- 采用深度进化策略(Deep Evolution Strategy)进行交易决策
+- 采用深度进化策略DES进行交易决策
 - 完整的数据处理和特征工程
 - 可视化界面展示预测和交易结果
 - 支持批量处理多支股票
+- 多数据源支持（Yahoo Finance、AKShare）
+- 多语言界面支持（中文/英文）
 
-## 环境要求
+## 主要功能
 
-- Python 3.12+
-- Poetry包管理器
-- PyTorch (推荐CUDA支持)
-- Gradio (用于创建Web界面)
+### 1. 股票数据获取与预处理
+- 支持多种数据源：Yahoo Finance 和 AKShare
+- 自动下载并预处理股票历史数据
+- 计算多种技术指标（移动平均线、RSI、MACD、布林带等）
+- 修复了技术指标计算中的未来数据泄露问题
 
-## 安装
+### 2. LSTM价格预测
+- 使用长短期记忆网络（LSTM）模型预测股票价格
+- 提供明日价格预测功能
+- 可视化预测结果与实际价格对比
+- 生成投资建议（买入/卖出/持有）
 
-1. 克隆项目:
+### 3. 强化学习交易策略
+- 基于深度进化策略的强化学习模型
+- 生成买入/卖出信号
+- 模拟交易并计算投资回报率
+- 风险调整绩效分析（夏普比率、索提诺比率、最大回撤等）
+
+### 4. 可视化分析
+- 价格预测与实际走势对比图
+- 交易信号可视化（买入/卖出点标记）
+- 特征重要性分析
+- 累积收益曲线
+
+### 5. 多语言支持
+- 支持中英文界面切换
+- 所有分析结果和图表根据语言设置自动适配
+
+## 技术栈
+
+- **深度学习框架**：PyTorch
+- **数据处理**：Pandas, NumPy
+- **数据获取**：yfinance, AKShare
+- **可视化**：Matplotlib, Seaborn, Streamlit
+- **优化算法**：深度进化策略DES
+- **界面**：Streamlit
+
+## 安装指南
+
+### 前置要求
+- Python 3.7+
+- pip
+
+### 安装步骤
+
+1. 克隆仓库：
 ```bash
-git clone https://github.com/MilleXi/stock_trading.git
-cd stock_trading
+git clone https://github.com/zengplus/LSTM-Stock-Predictor.git
+cd LSTM-Stock-Predictor
 ```
 
-2. 使用Poetry安装依赖:
+2. 安装依赖：
 ```bash
-poetry install
+pip install -r requirements.txt
 ```
-
-如果需要安装PyTorch的特定CUDA版本，请参考[PyTorch官方安装指南](https://pytorch.org/get-started/locally/)。
 
 ## 使用说明
 
-项目包含四个主要模块，按以下顺序运行：
-
-### 1. 数据获取与处理
+### 运行应用
 ```bash
-python process_stock_data.py
+streamlit run app.py
 ```
-- 从Yahoo Finance下载股票数据
-- 计算技术指标（如MA, RSI等）
-- 数据预处理和清洗，包括去除缺失值、归一化等
-- 结果保存在`data`目录中，包含处理后的历史股票数据以及技术指标
 
-### 2. LSTM预测模型
-```bash
-python stock_prediction_lstm.py
-```
-- 使用LSTM模型预测股票价格
-- 模型训练、验证、评估
-- 预测结果可视化
-- 结果保存在`results/predictions`目录
+### 界面操作指南
 
-### 3. 强化学习交易代理
-```bash
-python RLagent.py
-```
-- 基于深度进化策略的交易代理
-- 自动学习交易策略
-- 交易结果分析
-- 结果保存在`results/transactions`目录
+1. **侧边栏参数设置**：
+   - 输入股票代码（多个代码用逗号分隔）
+   - 设置日期范围
+   - 调整初始资金、训练轮数等参数
+   - 选择数据源（Yahoo Finance 或 AKShare）
+   - 设置语言（中文/英文）
 
-### 4. 可视化界面
-```bash
-python gradio_interface.py
-```
-- 提供Web界面进行交互
-- 可视化预测结果和交易决策
-- 支持用户选择股票和时间区间并下载股票数据【更新！无需自行下载数据并上传csv】
-- 支持参数调整和实时预测
+2. **功能按钮**：
+   - **运行完整分析**：执行数据获取、模型训练、预测和交易策略生成
+   - **仅获取明日预测**：快速获取明日价格预测和投资建议
+
+3. **结果展示**：
+   - 股票预测结果（RMSE、MAE、准确率）
+   - 交易策略分析（总收益、投资回报率）
+   - 明日价格预测及投资建议
+   - 可视化图表（价格走势、交易信号等）
+
+#### 首页示例
+![Home Page](images/home_page.png)
+
+#### 结果页示例
+![Results Page](images/results_page.png)
 
 ## 项目结构
 
 ```
-stock_trading/
-├── data/                   # 存储股票数据
-├── results/                # 存储结果
-│   ├── predictions/        # 预测结果
-│   ├── transactions/       # 交易记录
-│   └── pic/               # 可视化图表
-├── process_stock_data.py   # 数据处理模块
-├── stock_prediction_lstm.py# LSTM预测模块
-├── RLagent.py             # 强化学习交易模块
-├── visualization.py        # 可视化工具
-├── gradio_interface.py     # Web界面
-└── README.md              # 项目文档
+LSTM-Stock-Predictor/
+├── results/                # 分析结果存储目录
+│   └── session_{timestamp}/ # 以时间戳命名的会话目录
+│       ├── analytics/        # 分析报告
+│       ├── feature_importance/ # 特征重要性分析结果
+│       ├── models/           # 保存的模型
+│       ├── predictions/      # 预测结果
+│       ├── scalers/          # 归一化器
+│       ├── trading/          # 交易记录
+│       └── session_summary.json # 会话总结
+├── data/                   # 股票数据存储目录
+├── images/                 # 项目文档图片目录
+├── app.py                  # 主应用程序
+├── requirements.txt        # 依赖列表
+├── README.md               # 中文项目文档
+├── README_EN.md            # 英文项目文档
+└── LICENSE                 # 许可证文件
 ```
 
-## 主要功能
+## 许可证
 
-1. 数据处理
-   - 自动下载股票数据
-   - 计算技术指标
-   - 数据归一化和预处理
+本项目采用 MIT 许可证 - 详情请查看 LICENSE 文件。
 
-2. 价格预测
-   - LSTM模型训练
-   - 预测准确率评估
-   - 预测结果可视化
+---
 
-3. 交易决策
-   - 强化学习策略优化
-   - 自动交易信号生成
-   - 收益率分析
-
-4. 可视化界面
-   - 交互式操作
-   - 可自由选择股票和时间区间并下载股票数据【更新！无需自行下载数据并上传csv】
-   - 可自由调整参数并训练
-   - 预测展示
-   - 交易结果分析
-   - 提供下载Agent交易记录
-
-## 备注
-
-- 项目使用Poetry进行依赖管理
-- 如果遇到网络问题，可能需要配置代理来下载股票数据
-- 建议使用GPU进行模型训练以提高性能
-
-## 联系方式
-
-如有问题或建议，欢迎在GitHub上提issue。
+**重要提示**：股票市场投资有风险，本工具提供的预测和建议仅供参考，不构成投资建议。实际投资决策需谨慎。本项目仅用于学习和研究目的。

@@ -1,0 +1,12 @@
+flask
+pandas
+numpy
+yfinance
+torch
+scikit-learn
+matplotlib
+seaborn
+tqdm
+requests
+akshare
+tushare
